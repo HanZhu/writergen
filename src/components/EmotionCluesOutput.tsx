@@ -30,7 +30,7 @@ const EmotionCluesOutput: React.FC<EmotionCluesOutputProps> = ({ text }) => {
     setHasAnalyzed(false);
     setFallbackUsed(false);
     try {
-      const prompt = `You are an expert literary emotion analyst. Read the following text and extract both the core/main emotions and any underlying or hidden emotions expressed (not moods, not phrases, not situations). Respond ONLY with a single valid minified JSON array of 3-7 single-word emotions (surface or underlying, in the input language, or English if not available). Do not include any extra text, commentary, or formatting. If you cannot comply, respond with [\"ERROR\"].`;
+      const prompt = `You are an expert literary emotion analyst. Read the following text and extract both the core/main emotions and any underlying or hidden emotions expressed (not moods, not phrases, not situations). Respond ONLY with a single valid minified JSON array of 3-7 single-word emotions (surface or underlying, in the input language, or English if not available). Do not include any extra text, commentary, formatting, markdown, code block, or object—just the array itself. If you cannot comply, respond with [\"ERROR\"].`;
       const response = await axios.post(
         'https://api.siliconflow.cn/chat/completions',
         {
@@ -44,13 +44,15 @@ const EmotionCluesOutput: React.FC<EmotionCluesOutputProps> = ({ text }) => {
         },
         {
           headers: {
-            'Authorization': 'Bearer sk-bvzmpseywrtsakqtnxaqfpilmrydalevpgrdcicsexfojmti',
+            'Authorization': `Bearer ${process.env.REACT_APP_SILICONFLOW_API_KEY}`,
             'Content-Type': 'application/json',
           },
         }
       );
       let jsonString = response.data.choices[0].message.content.trim();
-      // Extract only the first JSON array
+      // Remove markdown code block if present
+      jsonString = jsonString.replace(/```[a-zA-Z]*[\s\n]*([\s\S]*?)```/g, '$1').trim();
+      // Only use array output, ignore object output
       const firstBracket = jsonString.indexOf('[');
       const lastBracket = jsonString.indexOf(']', firstBracket);
       let result: string[] = [];
@@ -68,21 +70,21 @@ const EmotionCluesOutput: React.FC<EmotionCluesOutputProps> = ({ text }) => {
           // fall through to fallback
         }
       }
-      // Fallback: try to split by commas or newlines if not valid JSON
+      // Fallback: try to split by commas or newlines if not valid JSON array
       if (!parsed) {
-        // Remove any extra text before/after brackets
-        let fallbackText = jsonString;
-        if (firstBracket !== -1 && lastBracket !== -1) {
-          fallbackText = jsonString.substring(firstBracket + 1, lastBracket);
-        }
-        // Try splitting by comma or newline
-        let fallbackArr = fallbackText.split(/,|\n|\r/).map((s: string) => s.trim()).filter(Boolean);
-        if (fallbackArr.length > 0 && fallbackArr[0] !== 'ERROR') {
-          setClues(fallbackArr);
-          setHasAnalyzed(true);
-          setFallbackUsed(true);
+        // If object detected, ignore and show error
+        if (jsonString.trim().startsWith('{')) {
+          setError('Model returned an object instead of an array. Please try again.');
         } else {
-          setError('Failed to parse model output.');
+          // Try splitting by comma or newline
+          let fallbackArr = jsonString.split(/,|\n|\r/).map((s: string) => s.trim()).filter(Boolean);
+          if (fallbackArr.length > 0 && fallbackArr[0] !== 'ERROR') {
+            setClues(fallbackArr);
+            setHasAnalyzed(true);
+            setFallbackUsed(true);
+          } else {
+            setError('Failed to parse model output.');
+          }
         }
       }
     } catch (e) {
