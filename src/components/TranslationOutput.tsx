@@ -20,6 +20,16 @@ const LANGUAGES = [
   { code: 'zh', name: 'Chinese' },
 ];
 
+// Robust JSON extraction: find the first valid JSON object
+function extractFirstJsonObject(text: string): string | null {
+  const regex = /\{[\s\S]*?\}/g;
+  const matches = text.match(regex);
+  if (matches && matches.length > 0) {
+    return matches[0];
+  }
+  return null;
+}
+
 const TranslationOutput: React.FC<TranslationOutputProps> = ({
   text,
   isGenerating,
@@ -53,7 +63,7 @@ const TranslationOutput: React.FC<TranslationOutputProps> = ({
       let rawOutputs = [];
       if (selectedLanguage === 'en') {
         // Single step: input to English
-        const prompt = `You are a professional translator and literary author. Translate the following text to English. Your response MUST be in English only. Do NOT include any words or characters from the original text in your response. If you return any language other than English, or if you cannot fully translate, respond with {\"translation\": \"ERROR\"}. Respond ONLY with a single valid minified JSON object: {\"translation\": \"...\"}. Do not include any extra text, commentary, or formatting.`;
+        const prompt = `You are a professional translator. Translate the following text to ${targetLangName}. Respond ONLY with a single valid minified JSON object: {\"translation\": \"...\"} (no extra text, no commentary, no original text, no separators, no markdown, no code block, no multiple objects). If you cannot comply, respond with {\"translation\": \"ERROR\"}.`;
         const response = await axios.post(
           'https://api.siliconflow.cn/chat/completions',
           {
@@ -72,37 +82,44 @@ const TranslationOutput: React.FC<TranslationOutputProps> = ({
             },
           }
         );
+        // Extract and parse only the first JSON object from the output
         let jsonString = response.data.choices[0].message.content.trim();
-        rawOutputs.push(jsonString);
         setRawModelOutput(jsonString);
         // Extract and parse only the first JSON object from the output
-        const firstBrace = jsonString.indexOf('{');
-        let braceCount = 0;
-        let endIdx = -1;
-        for (let i = firstBrace; i < jsonString.length; i++) {
-          if (jsonString[i] === '{') braceCount++;
-          if (jsonString[i] === '}') braceCount--;
-          if (braceCount === 0 && firstBrace !== -1) {
-            endIdx = i;
-            break;
-          }
+        let firstJson = extractFirstJsonObject(jsonString);
+        if (firstJson) {
+          jsonString = firstJson;
         }
-        if (firstBrace !== -1 && endIdx !== -1) {
-          jsonString = jsonString.substring(firstBrace, endIdx + 1);
-        }
+        // Escape unescaped line breaks inside string values
         jsonString = jsonString.replace(/:(\s*)"([\s\S]*?)"/g, function(match: string, p1: string, p2: string) {
           return `:${p1}"${p2.replace(/[\r\n]+/g, '\\n')}"`;
         });
         let result;
+        let parsed = false;
         try {
           result = JSON.parse(jsonString);
-          finalTranslation = result.translation || '';
+          const hasTranslation = !!result.translation && result.translation !== 'ERROR';
+          setTranslatedText(result.translation || '');
+          setMissingTranslation(!hasTranslation);
+          setParseError(false);
+          setParseErrorMessage('');
+          if (!hasTranslation) {
+            setParseError(true);
+            setParseErrorMessage('Model did not return translation field or returned an error.');
+          }
+          parsed = true;
         } catch (e) {
-          setParseError(true);
-          setParseErrorMessage('Failed to parse English translation.');
+          // Fallback: If not valid JSON, check if it's just text (not JSON)
           setTranslatedText('');
-          onGenerateEnd();
-          return;
+          setMissingTranslation(false);
+          setParseError(true);
+          // If the output looks like plain text (not JSON), show it as translation with a warning
+          if (jsonString && !jsonString.trim().startsWith('{')) {
+            setTranslatedText(jsonString.trim());
+            setParseErrorMessage('Model did not return valid JSON, but returned plain text. Displaying as translation.');
+          } else {
+            setParseErrorMessage(e instanceof Error ? e.message : String(e));
+          }
         }
       } else {
         // Step 1: input to English
