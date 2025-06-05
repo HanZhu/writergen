@@ -1,11 +1,14 @@
 import axios from 'axios';
 import { TranslationResponse, ImageResponse, VideoSubmitResponse, VideoStatusResponse } from '../types/api';
 
-const API_KEY = 'sk-bvzmpseywrtsakqtnxaqfpilmrydalevpgrdcicsexfojmti';
-const BASE_URL = 'https://api.siliconflow.cn/v1';
+const API_KEY = process.env.REACT_APP_SILICONFLOW_API_KEY;
+
+if (!API_KEY) {
+  console.error('API key is not set. Please check your .env file.');
+}
 
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: 'https://api.siliconflow.cn/v1',
   headers: {
     'Authorization': `Bearer ${API_KEY}`,
     'Content-Type': 'application/json',
@@ -58,4 +61,6 @@ export const checkVideoStatus = async (requestId: string): Promise<VideoStatusRe
     requestId,
   });
   return response.data;
-}; 
+};
+
+export default api; 

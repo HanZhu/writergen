@@ -25,18 +25,19 @@ WriterGen is a single-page web application that transforms written content into 
    ```bash
    npm install
    ```
-3. Start the development server:
+3. Set up environment variables
+   - Copy `.env.example` to `.env`
+   - Replace `your_api_key_here` with your SiliconFlow API key
+4. Start the development server:
    ```bash
    npm start
    ```
 
-## API Keys
+## Environment Variables
 
-The application uses SiliconCloud's API services. Make sure to set up your API key in the environment variables:
+The following environment variables are required:
 
-```env
-REACT_APP_SILICONCLOUD_API_KEY=your_api_key_here
-```
+- `REACT_APP_SILICONFLOW_API_KEY`: Your SiliconFlow API key
 
 ## Project Structure
 
@@ -65,3 +66,11 @@ src/
 ## License
 
 This project is licensed under the MIT License. 
+
+## Deployment
+
+The app is automatically deployed to GitHub Pages when changes are pushed to the main branch.
+
+## Security Note
+
+Never commit your `.env` file or expose your API keys. The `.env` file is already added to `.gitignore` to prevent accidental commits. 
