@@ -20,12 +20,12 @@ const LANGUAGES = [
   { code: 'zh', name: 'Chinese' },
 ];
 
-// Robust JSON extraction: find the first valid JSON object
-function extractFirstJsonObject(text: string): string | null {
+// Robust JSON extraction: find all JSON objects and return the last one
+function extractLastJsonObject(text: string): string | null {
   const regex = /\{[\s\S]*?\}/g;
   const matches = text.match(regex);
   if (matches && matches.length > 0) {
-    return matches[0];
+    return matches[matches.length - 1];
   }
   return null;
 }
@@ -82,13 +82,13 @@ const TranslationOutput: React.FC<TranslationOutputProps> = ({
             },
           }
         );
-        // Extract and parse only the first JSON object from the output
+        // Extract and parse the last JSON object from the output
         let jsonString = response.data.choices[0].message.content.trim();
         setRawModelOutput(jsonString);
-        // Extract and parse only the first JSON object from the output
-        let firstJson = extractFirstJsonObject(jsonString);
-        if (firstJson) {
-          jsonString = firstJson;
+        // Extract and parse the last JSON object from the output
+        let lastJson = extractLastJsonObject(jsonString);
+        if (lastJson) {
+          jsonString = lastJson;
         }
         // Escape unescaped line breaks inside string values
         jsonString = jsonString.replace(/:(\s*)"([\s\S]*?)"/g, function(match: string, p1: string, p2: string) {
@@ -109,14 +109,22 @@ const TranslationOutput: React.FC<TranslationOutputProps> = ({
           }
           parsed = true;
         } catch (e) {
-          // Fallback: If not valid JSON, check if it's just text (not JSON)
+          // Fallback: If not valid JSON, try to extract last non-JSON text block
           setTranslatedText('');
           setMissingTranslation(false);
           setParseError(true);
-          // If the output looks like plain text (not JSON), show it as translation with a warning
-          if (jsonString && !jsonString.trim().startsWith('{')) {
-            setTranslatedText(jsonString.trim());
-            setParseErrorMessage('Model did not return valid JSON, but returned plain text. Displaying as translation.');
+          // Try to split by lines and use the last non-empty, non-JSON line
+          const lines = jsonString.split(/\n|\r/).map((l: string) => l.trim()).filter(Boolean);
+          let lastText = '';
+          for (let i = lines.length - 1; i >= 0; i--) {
+            if (!lines[i].startsWith('{') && !lines[i].endsWith('}')) {
+              lastText = lines[i];
+              break;
+            }
+          }
+          if (lastText) {
+            setTranslatedText(lastText);
+            setParseErrorMessage('Model did not return valid JSON, but returned text. Displaying as translation.');
           } else {
             setParseErrorMessage(e instanceof Error ? e.message : String(e));
           }
