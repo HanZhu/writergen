@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/writergen/static/css/main.0a6008f0.css",
+    "main.js": "/writergen/static/js/main.b318b410.js",
+    "index.html": "/writergen/index.html",
+    "main.0a6008f0.css.map": "/writergen/static/css/main.0a6008f0.css.map",
+    "main.b318b410.js.map": "/writergen/static/js/main.b318b410.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.0a6008f0.css",
+    "static/js/main.b318b410.js"
+  ]
+}
