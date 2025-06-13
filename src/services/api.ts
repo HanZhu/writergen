@@ -1,16 +1,10 @@
 import axios from 'axios';
 import { TranslationResponse, ImageResponse, VideoSubmitResponse, VideoStatusResponse } from '../types/api';
 
-const API_KEY = process.env.REACT_APP_SILICONFLOW_API_KEY;
-
-if (!API_KEY) {
-  console.error('API key is not set. Please check your .env file.');
-}
-
 const api = axios.create({
   baseURL: 'https://api.siliconflow.cn/v1',
   headers: {
-    'Authorization': `Bearer ${API_KEY}`,
+    'Authorization': `Bearer ${process.env.REACT_APP_SILICONFLOW_API_KEY}`,
     'Content-Type': 'application/json',
   },
 });

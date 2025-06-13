@@ -73,7 +73,7 @@ const TranslationOutput: React.FC<TranslationOutputProps> = ({
           },
           {
             headers: {
-              'Authorization': 'Bearer sk-bvzmpseywrtsakqtnxaqfpilmrydalevpgrdcicsexfojmti',
+              'Authorization': `Bearer ${process.env.REACT_APP_SILICONFLOW_API_KEY}`,
               'Content-Type': 'application/json',
             },
           }
