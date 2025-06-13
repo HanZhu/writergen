@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/writergen/static/css/main.2c73b827.css",
-    "main.js": "/writergen/static/js/main.5da3ea99.js",
+    "main.js": "/writergen/static/js/main.f87c3da7.js",
     "index.html": "/writergen/index.html",
     "main.2c73b827.css.map": "/writergen/static/css/main.2c73b827.css.map",
-    "main.5da3ea99.js.map": "/writergen/static/js/main.5da3ea99.js.map"
+    "main.f87c3da7.js.map": "/writergen/static/js/main.f87c3da7.js.map"
   },
   "entrypoints": [
     "static/css/main.2c73b827.css",
-    "static/js/main.5da3ea99.js"
+    "static/js/main.f87c3da7.js"
   ]
 }
