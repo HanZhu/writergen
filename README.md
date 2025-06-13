@@ -1,5 +1,9 @@
 # WriterGen - Your Writing to the World
 
+A modern web application for text generation, translation, and media creation.
+
+Last updated: 2024-03-21
+
 WriterGen is a single-page web application that transforms written content into multiple creative formats, helping writers visualize their work in different dimensions.
 
 ## Features
