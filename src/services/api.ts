@@ -17,7 +17,7 @@ const api = axios.create({
 
 export const translateText = async (text: string, targetLanguage: string): Promise<TranslationResponse> => {
   const response = await api.post('/chat/completions', {
-    model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B',
+    model: 'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B',
     messages: [
       {
         role: 'system',
@@ -29,7 +29,7 @@ export const translateText = async (text: string, targetLanguage: string): Promi
       }
     ],
     temperature: 0.5,
-    max_tokens: 800,
+    max_tokens: 128,
   });
   return response.data;
 };
@@ -46,21 +46,44 @@ export const generateImage = async (text: string): Promise<ImageResponse> => {
   return response.data;
 };
 
-export const submitVideoGeneration = async (text: string): Promise<VideoSubmitResponse> => {
-  // Use the Wan-AI model as per API documentation
+export const submitVideoGeneration = async (
+  text: string,
+  negativePrompt: string,
+  imageSize: string
+): Promise<VideoSubmitResponse> => {
   const response = await api.post('/video/submit', {
     model: 'Wan-AI/Wan2.1-T2V-14B',
     prompt: text,
+    negative_prompt: negativePrompt,
+    image_size: imageSize,
   });
   return response.data;
 };
 
 export const checkVideoStatus = async (requestId: string): Promise<VideoStatusResponse> => {
-  // Use POST /video/retrieve as per documentation
-  const response = await api.post('/video/retrieve', {
-    requestId,
-  });
-  return response.data;
+  const response = await api.post('/video/status', { requestId });
+  console.log('Video status API response:', response.data);
+  // SiliconFlow returns { status, reason, results: { videos: [{ url }] } }
+  if (response.data.status === 'Succeed' && response.data.results?.videos?.length > 0) {
+    return {
+      status: 'completed',
+      videoUrl: response.data.results.videos[0].url,
+    };
+  } else if (
+    response.data.status === 'InQueue' ||
+    response.data.status === 'Running' ||
+    response.data.status === 'Pending' ||
+    response.data.status === 'Processing' ||
+    response.data.status === 'InProgress'
+  ) {
+    return {
+      status: 'pending',
+    };
+  } else {
+    return {
+      status: 'failed',
+    };
+  }
 };
 
 export default api; 

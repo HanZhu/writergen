@@ -1,84 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { submitVideoGeneration, checkVideoStatus } from '../services/api';
+import React from 'react';
 
 interface VideoOutputProps {
-  text: string;
+  status: 'idle' | 'submitting' | 'generating' | 'completed' | 'failed';
+  videoUrl?: string;
+  onGenerate: () => void;
+  onCancel: () => void;
   isGenerating: boolean;
-  onGenerateStart: () => void;
-  onGenerateEnd: () => void;
 }
 
 const VideoOutput: React.FC<VideoOutputProps> = ({
-  text,
+  status,
+  videoUrl,
+  onGenerate,
+  onCancel,
   isGenerating,
-  onGenerateStart,
-  onGenerateEnd,
 }) => {
-  const [requestId, setRequestId] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
-  const [status, setStatus] = useState('');
-
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-
-    const fetchVideoStatus = async () => {
-      if (!requestId) return;
-
-      try {
-        const response = await checkVideoStatus(requestId);
-
-        if (response.status === 'completed') {
-          setVideoUrl(response.videoUrl || '');
-          setStatus('completed');
-          onGenerateEnd();
-          clearInterval(intervalId);
-        } else if (response.status === 'failed') {
-          setStatus('failed');
-          onGenerateEnd();
-          clearInterval(intervalId);
-        }
-      } catch (error) {
-        console.error('Video status check error:', error);
-        setStatus('failed');
-        onGenerateEnd();
-        clearInterval(intervalId);
-      }
-    };
-
-    if (requestId) {
-      intervalId = setInterval(fetchVideoStatus, 5000);
-    }
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [requestId, onGenerateEnd]);
-
-  const handleGenerateVideo = async () => {
-    if (!text.trim()) return;
-
-    onGenerateStart();
-    setStatus('generating');
-    try {
-      const response = await submitVideoGeneration(text);
-      setRequestId(response.requestId);
-    } catch (error) {
-      console.error('Video generation error:', error);
-      setStatus('failed');
-      onGenerateEnd();
-    }
-  };
-
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
-      <div className="flex justify-between items-center mb-4">
+    <div className="bg-white rounded-lg shadow-sm p-6 flex flex-col items-center">
+      <div className="w-full flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold text-gray-900">Video Generation</h2>
       </div>
 
       {videoUrl ? (
-        <div className="space-y-4">
+        <div className="space-y-4 w-full flex flex-col items-center">
           <video
             src={videoUrl}
             controls
@@ -93,27 +37,43 @@ const VideoOutput: React.FC<VideoOutputProps> = ({
           </a>
         </div>
       ) : (
-        <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-          <p className="text-gray-500 text-center">
-            {status === 'generating'
-              ? 'Generating video... This may take a few minutes'
-              : status === 'failed'
-              ? 'Failed to generate video. Please try again.'
-              : 'Click generate to create a video from your text'}
-          </p>
+        <div className="w-full flex flex-col items-center mb-4">
+          {status === 'submitting' ? (
+            <>
+              <div className="flex flex-col items-center mb-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-accent mb-2"></div>
+                <p className="text-gray-700 text-center font-medium">
+                  Submitting video job... (this may take a few seconds)
+                </p>
+              </div>
+            </>
+          ) : status === 'generating' ? (
+            <>
+              <div className="flex flex-col items-center mb-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-accent mb-2"></div>
+                <p className="text-gray-700 text-center font-medium">
+                  Generating video... This may take up to 5 minutes.
+                </p>
+              </div>
+            </>
+          ) : status === 'failed' ? (
+            <p className="text-red-500 text-center font-medium">Failed to generate video. Please try again.</p>
+          ) : (
+            <p className="text-gray-500 text-center font-medium">Click the button below to create a video from your text.</p>
+          )}
         </div>
       )}
 
       <button
-        onClick={handleGenerateVideo}
-        disabled={!text.trim() || isGenerating}
-        className={`mt-4 w-full py-2 px-4 rounded-md text-white font-medium ${
-          !text.trim() || isGenerating
+        onClick={onGenerate}
+        disabled={isGenerating || status === 'generating'}
+        className={`mt-2 w-full py-2 px-4 rounded-md text-white font-medium transition-colors duration-150 ${
+          isGenerating || status === 'generating'
             ? 'bg-gray-400 cursor-not-allowed'
             : 'bg-accent hover:bg-accent/90'
         }`}
       >
-        {isGenerating ? 'Generating...' : 'Generate Video'}
+        {isGenerating || status === 'generating' ? 'Generating...' : 'Generate Video'}
       </button>
     </div>
   );

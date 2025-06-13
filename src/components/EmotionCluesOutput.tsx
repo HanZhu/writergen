@@ -34,13 +34,13 @@ const EmotionCluesOutput: React.FC<EmotionCluesOutputProps> = ({ text }) => {
       const response = await axios.post(
         'https://api.siliconflow.cn/chat/completions',
         {
-          model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B',
+          model: 'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B',
           messages: [
             { role: 'system', content: prompt },
             { role: 'user', content: text },
           ],
           temperature: 0.5,
-          max_tokens: 200,
+          max_tokens: 64,
         },
         {
           headers: {
@@ -64,6 +64,12 @@ const EmotionCluesOutput: React.FC<EmotionCluesOutputProps> = ({ text }) => {
           if (Array.isArray(result) && result[0] !== 'ERROR') {
             setClues(result);
             setHasAnalyzed(true);
+            setError(null);
+            parsed = true;
+          } else if (Array.isArray(result) && result[0] === 'ERROR') {
+            setClues([]);
+            setHasAnalyzed(false);
+            setError('未能识别情感，请尝试更丰富的文本。');
             parsed = true;
           }
         } catch (e) {
@@ -82,8 +88,13 @@ const EmotionCluesOutput: React.FC<EmotionCluesOutputProps> = ({ text }) => {
             setClues(fallbackArr);
             setHasAnalyzed(true);
             setFallbackUsed(true);
+            setError(null);
+          } else if (fallbackArr.length > 0 && fallbackArr[0] === 'ERROR') {
+            setClues([]);
+            setHasAnalyzed(false);
+            setError('未能识别情感，请尝试更丰富的文本。');
           } else {
-            setError('Failed to parse model output.');
+            setError('Model output was not valid JSON. Showing best guess.');
           }
         }
       }

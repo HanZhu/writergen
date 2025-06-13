@@ -58,22 +58,20 @@ const TranslationOutput: React.FC<TranslationOutputProps> = ({
     setMissingTranslation(false);
     try {
       const targetLangName = LANGUAGES.find(lang => lang.code === selectedLanguage)?.name;
-      let finalTranslation = '';
-      let englishText = '';
-      let rawOutputs = [];
-      if (selectedLanguage === 'en') {
-        // Single step: input to English
-        const prompt = `You are a professional translator. Translate the following text to ${targetLangName}. Respond ONLY with a single valid minified JSON object: {\"translation\": \"...\"} (no extra text, no commentary, no original text, no separators, no markdown, no code block, no multiple objects). If you cannot comply, respond with {\"translation\": \"ERROR\"}.`;
+      // Unified single-step translation for all languages
+      const prompt = `You are a professional translator. Translate the following text to ${targetLangName}. Respond ONLY with a single valid minified JSON object: {"translation": "..."} (no extra text, no commentary, no original text, no separators, no markdown, no code block, no multiple objects). If you cannot comply, respond with {"translation": "ERROR"}.`;
+      let jsonString = '';
+      try {
         const response = await axios.post(
           'https://api.siliconflow.cn/chat/completions',
           {
-            model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B',
+            model: 'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B',
             messages: [
               { role: 'system', content: prompt },
               { role: 'user', content: text }
             ],
             temperature: 0.5,
-            max_tokens: 800,
+            max_tokens: 128,
           },
           {
             headers: {
@@ -82,167 +80,56 @@ const TranslationOutput: React.FC<TranslationOutputProps> = ({
             },
           }
         );
-        // Extract and parse the last JSON object from the output
-        let jsonString = response.data.choices[0].message.content.trim();
+        jsonString = response.data.choices[0].message.content.trim();
         setRawModelOutput(jsonString);
-        // Extract and parse the last JSON object from the output
         let lastJson = extractLastJsonObject(jsonString);
         if (lastJson) {
           jsonString = lastJson;
         }
-        // Escape unescaped line breaks inside string values
-        jsonString = jsonString.replace(/:(\s*)"([\s\S]*?)"/g, function(match: string, p1: string, p2: string) {
-          return `:${p1}"${p2.replace(/[\r\n]+/g, '\\n')}"`;
+        // Replace unescaped newlines, carriage returns, and tabs in value strings with \n
+        jsonString = jsonString.replace(/"([^\"]*)":\s*"([\s\S]*?)"/g, (match: string, key: string, value: string) => {
+          // Only replace inside value
+          const safeValue = value.replace(/[\r\n\t]/g, '\\n');
+          return `"${key}": "${safeValue}"`;
         });
-        let result;
-        let parsed = false;
-        try {
-          result = JSON.parse(jsonString);
-          const hasTranslation = !!result.translation && result.translation !== 'ERROR';
-          setTranslatedText(result.translation || '');
-          setMissingTranslation(!hasTranslation);
+        let result = JSON.parse(jsonString);
+        const hasTranslation = !!result.translation && result.translation !== 'ERROR';
+        if (hasTranslation) {
+          setTranslatedText(result.translation);
+          setMissingTranslation(false);
           setParseError(false);
           setParseErrorMessage('');
-          if (!hasTranslation) {
-            setParseError(true);
-            setParseErrorMessage('Model did not return translation field or returned an error.');
-          }
-          parsed = true;
-        } catch (e) {
-          // Fallback: If not valid JSON, try to extract last non-JSON text block
+        } else {
           setTranslatedText('');
+          setMissingTranslation(true);
+          setParseError(true);
+          setParseErrorMessage('Model did not return translation field or returned an error.');
+        }
+      } catch (e) {
+        console.error('JSON parse error:', e, jsonString);
+        // Fallback: Try to extract last non-JSON text block (e.g., after ---)
+        const lines = jsonString.split(/\n|\r|---/).map((l: string) => l.trim()).filter(Boolean);
+        let lastText = '';
+        for (let i = lines.length - 1; i >= 0; i--) {
+          if (!lines[i].startsWith('{') && !lines[i].endsWith('}')) {
+            lastText = lines[i];
+            break;
+          }
+        }
+        if (lastText) {
+          setTranslatedText(lastText);
+          setParseErrorMessage('模型输出不规范，已自动修正。');
+          setParseError(false);
           setMissingTranslation(false);
-          setParseError(true);
-          // Try to split by lines and use the last non-empty, non-JSON line
-          const lines = jsonString.split(/\n|\r/).map((l: string) => l.trim()).filter(Boolean);
-          let lastText = '';
-          for (let i = lines.length - 1; i >= 0; i--) {
-            if (!lines[i].startsWith('{') && !lines[i].endsWith('}')) {
-              lastText = lines[i];
-              break;
-            }
-          }
-          if (lastText) {
-            setTranslatedText(lastText);
-            setParseErrorMessage('Model did not return valid JSON, but returned text. Displaying as translation.');
-          } else {
-            setParseErrorMessage(e instanceof Error ? e.message : String(e));
-          }
-        }
-      } else {
-        // Step 1: input to English
-        const prompt1 = `You are a professional translator and literary author. Translate the following text to English. Your response MUST be in English only. Do NOT include any words or characters from the original text in your response. If you return any language other than English, or if you cannot fully translate, respond with {\"translation\": \"ERROR\"}. Respond ONLY with a single valid minified JSON object: {\"translation\": \"...\"}. Do not include any extra text, commentary, or formatting.`;
-        const response1Promise = axios.post(
-          'https://api.siliconflow.cn/chat/completions',
-          {
-            model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B',
-            messages: [
-              { role: 'system', content: prompt1 },
-              { role: 'user', content: text }
-            ],
-            temperature: 0.5,
-            max_tokens: 800,
-          },
-          {
-            headers: {
-              'Authorization': 'Bearer sk-bvzmpseywrtsakqtnxaqfpilmrydalevpgrdcicsexfojmti',
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-        // Wait for English translation
-        const response1 = await response1Promise;
-        let jsonString1 = response1.data.choices[0].message.content.trim();
-        rawOutputs.push(jsonString1);
-        // Extract and parse only the first JSON object from the output
-        const firstBrace1 = jsonString1.indexOf('{');
-        let braceCount1 = 0;
-        let endIdx1 = -1;
-        for (let i = firstBrace1; i < jsonString1.length; i++) {
-          if (jsonString1[i] === '{') braceCount1++;
-          if (jsonString1[i] === '}') braceCount1--;
-          if (braceCount1 === 0 && firstBrace1 !== -1) {
-            endIdx1 = i;
-            break;
-          }
-        }
-        if (firstBrace1 !== -1 && endIdx1 !== -1) {
-          jsonString1 = jsonString1.substring(firstBrace1, endIdx1 + 1);
-        }
-        jsonString1 = jsonString1.replace(/:(\s*)"([\s\S]*?)"/g, function(match: string, p1: string, p2: string) {
-          return `:${p1}"${p2.replace(/[\r\n]+/g, '\\n')}"`;
-        });
-        let result1;
-        try {
-          result1 = JSON.parse(jsonString1);
-          englishText = result1.translation || '';
-        } catch (e) {
-          setParseError(true);
-          setParseErrorMessage('Failed to parse English translation.');
+        } else {
           setTranslatedText('');
-          onGenerateEnd();
-          return;
-        }
-        // Step 2: English to target
-        const prompt2 = `You are a professional translator and literary author. Translate the following text to ${targetLangName}. Your response MUST be in ${targetLangName} only. Do NOT include any words or characters from the original text in your response. If you return any language other than ${targetLangName}, or if you cannot fully translate, respond with {\"translation\": \"ERROR\"}. Respond ONLY with a single valid minified JSON object: {\"translation\": \"...\"}. Do not include any extra text, commentary, or formatting.`;
-        const response2Promise = axios.post(
-          'https://api.siliconflow.cn/chat/completions',
-          {
-            model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B',
-            messages: [
-              { role: 'system', content: prompt2 },
-              { role: 'user', content: englishText }
-            ],
-            temperature: 0.5,
-            max_tokens: 800,
-          },
-          {
-            headers: {
-              'Authorization': 'Bearer sk-bvzmpseywrtsakqtnxaqfpilmrydalevpgrdcicsexfojmti',
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-        // Wait for target translation
-        const response2 = await response2Promise;
-        let jsonString2 = response2.data.choices[0].message.content.trim();
-        rawOutputs.push(jsonString2);
-        setRawModelOutput(rawOutputs.join('\n---\n'));
-        // Extract and parse only the first JSON object from the output
-        const firstBrace2 = jsonString2.indexOf('{');
-        let braceCount2 = 0;
-        let endIdx2 = -1;
-        for (let i = firstBrace2; i < jsonString2.length; i++) {
-          if (jsonString2[i] === '{') braceCount2++;
-          if (jsonString2[i] === '}') braceCount2--;
-          if (braceCount2 === 0 && firstBrace2 !== -1) {
-            endIdx2 = i;
-            break;
-          }
-        }
-        if (firstBrace2 !== -1 && endIdx2 !== -1) {
-          jsonString2 = jsonString2.substring(firstBrace2, endIdx2 + 1);
-        }
-        jsonString2 = jsonString2.replace(/:(\s*)"([\s\S]*?)"/g, function(match: string, p1: string, p2: string) {
-          return `:${p1}"${p2.replace(/[\r\n]+/g, '\\n')}"`;
-        });
-        let result2;
-        try {
-          result2 = JSON.parse(jsonString2);
-          finalTranslation = result2.translation || '';
-        } catch (e) {
           setParseError(true);
-          setParseErrorMessage('Failed to parse target language translation.');
-          setTranslatedText('');
-          onGenerateEnd();
-          return;
+          setParseErrorMessage('Failed to parse model output as JSON.');
+          setMissingTranslation(false);
         }
       }
-      // Set final translation
-      setTranslatedText(finalTranslation);
-      setMissingTranslation(!finalTranslation);
-      setParseError(!finalTranslation);
-      setParseErrorMessage(!finalTranslation ? 'Model did not return translation field or returned an error.' : '');
+      onGenerateEnd();
+      return;
     } catch (error) {
       console.error('Translation error:', error);
       setTranslatedText('');
