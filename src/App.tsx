@@ -52,7 +52,6 @@ const App: React.FC = () => {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [isVideoMinimized, setIsVideoMinimized] = useState(false);
   const [videoStatus, setVideoStatus] = useState<'idle' | 'submitting' | 'generating' | 'completed' | 'failed'>('idle');
-  const [videoRequestId, setVideoRequestId] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   // Initialize cards in a grid
@@ -87,12 +86,9 @@ const App: React.FC = () => {
   const handleVideoGenerate = async () => {
     if (!text.trim() || videoStatus === 'generating' || videoStatus === 'submitting') return;
     setVideoStatus('submitting');
-    setVideoRequestId(null);
-    setVideoUrl(null);
     isVideoPollingActiveRef.current = true;
     try {
       const response = await submitVideoGeneration(text, NEGATIVE_PROMPT, VIDEO_SIZE);
-      setVideoRequestId(response.requestId);
       setVideoStatus('generating');
       if (pollingRef.current) clearInterval(pollingRef.current);
       pollingRef.current = setInterval(async () => {
@@ -135,7 +131,6 @@ const App: React.FC = () => {
     } catch (e) {
       setVideoStatus('failed');
       setVideoUrl(null);
-      setVideoRequestId(null);
       if (pollingRef.current) clearInterval(pollingRef.current);
       pollingRef.current = null;
       isVideoPollingActiveRef.current = false;
@@ -149,7 +144,6 @@ const App: React.FC = () => {
     }
     isVideoPollingActiveRef.current = false;
     setVideoStatus('idle');
-    setVideoRequestId(null);
     setVideoUrl(null);
     setShowVideoModal(false);
     setIsVideoMinimized(false);
@@ -247,7 +241,6 @@ const App: React.FC = () => {
       }
       isVideoPollingActiveRef.current = false;
       setVideoStatus('idle');
-      setVideoRequestId(null);
       setVideoUrl(null);
       handleVideoGenerate();
     }

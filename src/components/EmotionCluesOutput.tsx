@@ -30,7 +30,7 @@ const EmotionCluesOutput: React.FC<EmotionCluesOutputProps> = ({ text }) => {
     setHasAnalyzed(false);
     setFallbackUsed(false);
     try {
-      const prompt = `You are an expert literary emotion analyst. Read the following text and extract both the core/main emotions and any underlying or hidden emotions expressed (not moods, not phrases, not situations). Respond ONLY with a single valid minified JSON array of 3-7 single-word emotions (surface or underlying, in the input language, or English if not available). Do not include any extra text, commentary, formatting, markdown, code block, or object—just the array itself. If you cannot comply, respond with [\"ERROR\"].`;
+      const prompt = `You are an expert literary emotion analyst. Read the following text and extract both the core/main emotions and any underlying or hidden emotions expressed (not moods, not phrases, not situations). Respond ONLY with a single valid minified JSON array of 3-7 single-word emotions (surface or underlying, in the input language, or English if not available). Do not include any extra text, commentary, formatting, markdown, code block, or object—just the array itself. If you cannot comply, respond with ["ERROR"].`;
       const response = await axios.post(
         'https://api.siliconflow.cn/chat/completions',
         {

@@ -43,7 +43,6 @@ const TranslationOutput: React.FC<TranslationOutputProps> = ({
   const [rawModelOutput, setRawModelOutput] = useState('');
   const [parseError, setParseError] = useState(false);
   const [parseErrorMessage, setParseErrorMessage] = useState('');
-  const [missingTranslation, setMissingTranslation] = useState(false);
   const translationCardRef = useRef<HTMLDivElement>(null);
   const [copySuccess, setCopySuccess] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
@@ -55,7 +54,6 @@ const TranslationOutput: React.FC<TranslationOutputProps> = ({
     setParseError(false);
     setRawModelOutput('');
     setParseErrorMessage('');
-    setMissingTranslation(false);
     try {
       const targetLangName = LANGUAGES.find(lang => lang.code === selectedLanguage)?.name;
       // Unified single-step translation for all languages
@@ -87,7 +85,7 @@ const TranslationOutput: React.FC<TranslationOutputProps> = ({
           jsonString = lastJson;
         }
         // Replace unescaped newlines, carriage returns, and tabs in value strings with \n
-        jsonString = jsonString.replace(/"([^\"]*)":\s*"([\s\S]*?)"/g, (match: string, key: string, value: string) => {
+        jsonString = jsonString.replace(/"([^"]*)":\s*"([\s\S]*?)"/g, (match: string, key: string, value: string) => {
           // Only replace inside value
           const safeValue = value.replace(/[\r\n\t]/g, '\\n');
           return `"${key}": "${safeValue}"`;
@@ -96,12 +94,10 @@ const TranslationOutput: React.FC<TranslationOutputProps> = ({
         const hasTranslation = !!result.translation && result.translation !== 'ERROR';
         if (hasTranslation) {
           setTranslatedText(result.translation);
-          setMissingTranslation(false);
           setParseError(false);
           setParseErrorMessage('');
         } else {
           setTranslatedText('');
-          setMissingTranslation(true);
           setParseError(true);
           setParseErrorMessage('Model did not return translation field or returned an error.');
         }
@@ -120,12 +116,10 @@ const TranslationOutput: React.FC<TranslationOutputProps> = ({
           setTranslatedText(lastText);
           setParseErrorMessage('模型输出不规范，已自动修正。');
           setParseError(false);
-          setMissingTranslation(false);
         } else {
           setTranslatedText('');
           setParseError(true);
           setParseErrorMessage('Failed to parse model output as JSON.');
-          setMissingTranslation(false);
         }
       }
       onGenerateEnd();
@@ -133,7 +127,6 @@ const TranslationOutput: React.FC<TranslationOutputProps> = ({
     } catch (error) {
       console.error('Translation error:', error);
       setTranslatedText('');
-      setMissingTranslation(false);
       setParseError(true);
       setParseErrorMessage(error instanceof Error ? error.message : String(error));
     }
